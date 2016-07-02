@@ -65,11 +65,11 @@ class Company(object):
             if full_line is None:
                 continue
             manager = leaf_employee.manager
-            full_line.pop(0)
+            full_line.pop()
             while manager.populate_line_summary(full_line):
                 log.debug("Processing manager: %r", manager.number)
                 manager = manager.manager
-                full_line.pop(0)
+                full_line.pop()
 
         log.info("Completed setup")
 
@@ -104,7 +104,8 @@ class Employee(object):
             full_line.append(manager.number)
             manager = manager.manager
 
-        assert full_line[-1] == 1
+        full_line.reverse()
+        assert full_line[0] == 1
         return full_line
 
     def populate_line_summary(self, full_line):
@@ -117,11 +118,11 @@ class Employee(object):
         else:
             employee_numbers = []
             distance = []
-            for index in range(len(full_line) - 1,
-                               -1,
-                               -SUMMARY_INTERVAL):
+            for index in range(0,
+                               len(full_line),
+                               SUMMARY_INTERVAL):
                 employee_numbers.append(full_line[index])
-                distance.append(index + 1)
+                distance.append(len(full_line) - index)
             self._line_summary = (employee_numbers, distance)
 
         return True
@@ -211,8 +212,7 @@ if __name__ == "__main__":
 
             next_line = handle.readline().strip()
             while next_line != "":
-                # log.debug("Processing event: %r", event_no)
-                # log.debug("Current queue: %r", memo_queue)
+                log.debug("Processing event: %r", event_no)
                 person_number, importance, tie = map(int, next_line.split(" "))
                 if tie == 0:
                     assert importance == 0
@@ -233,21 +233,18 @@ if __name__ == "__main__":
             read_queue = []
 
             while len(event_queue) > 0:
-                log.info("Events left: %r", len(event_queue))
-                log.info("Events queued: %r", len(read_queue))
+                log.debug("Events left: %r", len(event_queue))
+                log.debug("Events queued: %r", len(read_queue))
                 if len(event_queue[-1]) == 2:
                     read_queue.append(event_queue.pop())
                 else:
                     memo_event = event_queue.pop()
-                    # log.debug("Search depth: %r", memo_event[1])
+                    log.debug("Search depth: %r", memo_event[1])
                     new_read_queue = []
                     for read_event in read_queue:
                         managee = company.get_employee(read_event[0])
                         if managee.in_management_line(memo_event[0],
                                                       memo_event[1]):
-                            # if company.in_management_line(memo_event[0],
-                            #                               read_event[0],
-                            #                               memo_event[1]):
                             total += memo_event[2] * read_event[1]
                         else:
                             new_read_queue.append(read_event)
