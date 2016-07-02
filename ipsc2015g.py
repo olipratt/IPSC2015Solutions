@@ -1,33 +1,30 @@
+# Outline of Design
+# -----------------
+#
+# - Build a company, with an array of employees indexable by employee number.
+# - While building, track a list of leaf nodes - sorted by employee number,
+#   so when a report is added, they are added in sorted position (which falls
+#   out basically for free because they arrive in order), and their manager is
+#   searched for and removed if present (array is sorted so search is cheap).
+# - Calculate the management line for each leaf in turn, populate them with a
+#   summary, of this line then pop the end off the line and populate the
+#   summary for their manager, and so on.
+#     - A possible optimisation here is to check if the manager has a summary,
+#       and if so just defer to that.
+
 import logging
 
-from collections import namedtuple
 import time
 import bisect
 
 log = logging.getLogger(__name__)
 
 
-
-# build list of leaf nodes - sorted, so whena report is added, they are added
-# in sorted position, and their manager is searched for and removed.
-# Calculate line for each leaf in turn, populate each summary, then pop the
-# end off the line and populate the summary for their manager.
-#    Possible optimisation here is to check if the manager has a summary, and
-#    if so just use that (with increments to all line lengths!).
-
-
-
-
 TEST_FILE = "g1.in"
 
 
-MemoEvent = namedtuple("MemoEvent", ["person_no", "importance", "tie"])
-ReadEvent = namedtuple("ReadEvent", ["person_no", "multiplier"])
-
-EMPLOYEE_NUM_IDX = 0
-EMPLOYEE_MGR_IDX = 1
-EMPLOYEE_LINE_IDX = 2
-
+# The size of the gaps in the management line summaries. Ideally this would be
+# dynamic based on the org size / depth.
 SUMMARY_INTERVAL = 1
 
 
