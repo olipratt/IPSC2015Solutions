@@ -14,18 +14,68 @@
 
 import logging
 
+from collections import namedtuple
 import time
 import bisect
 
 log = logging.getLogger(__name__)
 
 
-TEST_FILE = "g2.in"
+TEST_FILE = "g1.in"
 
 
 # The size of the gaps in the management line summaries. Ideally this would be
 # dynamic based on the org size / depth.
-SUMMARY_INTERVAL = 10000
+SUMMARY_INTERVAL = 10
+
+
+MemoEvent = namedtuple("MemoEvent", ["person_number", "importance", "tie"])
+ReadEvent = namedtuple("ReadEvent", ["person_number", "multiplier"])
+
+
+class ReadEventQueue(object):
+    """A queue of events requesting reading of an employee's tie."""
+
+    def __init__(self):
+        # The events are split across two lists to allow easy searching using
+        # bisect. These lists must always be the same length.
+        self._person_number_list = []
+        self._multiplier_list = []
+
+        self._iterator_index = 0
+
+    def __len__(self):
+        return len(self._person_number_list)
+
+    def __getitem__(self, index):
+        return ReadEvent(self._person_number_list[index],
+                         self._multiplier_list[index])
+
+    def add_event(self, read_event):
+        # Either, this is a duplicate read event, so just add the
+        # new multiplier to the existing stored one, or insert the
+        # new read request into the list.
+        index = bisect.bisect_left(self._person_number_list,
+                                   read_event.person_number)
+        if (index != len(self._person_number_list) and
+                self._person_number_list[index] == read_event.person_number):
+            self._multiplier_list[index] += read_event.multiplier
+        else:
+            self._person_number_list.insert(index, read_event.person_number)
+            self._multiplier_list.insert(index, read_event.multiplier)
+
+        assert len(self._person_number_list) == len(self._multiplier_list)
+
+    def reverse_index_range(self):
+        """Returns a range that can be used to iterate over the indexes of
+           events in the queue in reverse, so that the current event can be
+           safely popped from the queue without breaking the iteration. """
+        return range(len(self) - 1, -1, -1)
+
+    def pop(self, index):
+        """Remove the event at the given index (without returning it). """
+        self._person_number_list.pop(index)
+        self._multiplier_list.pop(index)
 
 
 class Company(object):
@@ -33,10 +83,9 @@ class Company(object):
 
     def __init__(self, num_employees, hierarchy_spec):
         self._num_employees = num_employees
+        self._employees = None
 
-        root_employee = Employee(self, 1, None)
-        root_employee.populate_line_summary([])
-        self._employees = [root_employee]
+        self._init_employees_list()
 
         sorted_leaf_employee_numbers = []
 
@@ -75,8 +124,49 @@ class Company(object):
 
         log.info("Completed setup")
 
+    def _init_employees_list(self):
+        """ Initialise the employee list with the root employee who is number
+            one and has no manager.
+        """
+        root_employee = Employee(self, 1, None)
+        root_employee.populate_line_summary([])
+        self._employees = [root_employee]
+
     def get_employee(self, employee_number):
         return self._employees[employee_number - 1]
+
+    def process_event_queue(self, event_queue):
+        """ Handle a list of events and return the result of processing them.
+        """
+        total = 0
+        read_queue = ReadEventQueue()
+
+        while len(event_queue) > 0:
+            log.debug("Events left: %r", len(event_queue))
+            log.debug("Events queued: %r", len(read_queue))
+            next_event = event_queue.pop()
+            if isinstance(next_event, ReadEvent):
+                read_queue.add_event(next_event)
+            else:
+                memo_event = next_event
+                log.debug("Search depth: %r", memo_event.importance)
+                for idx in read_queue.reverse_index_range():
+                    # The list is sorted so once the update would only
+                    # effect lower people in the company we're done.
+                    if (memo_event.person_number >
+                            read_queue[idx].person_number):
+                        break
+
+                    managee = self.get_employee(read_queue[idx].person_number)
+                    if managee.in_management_line(memo_event.person_number,
+                                                  memo_event.importance):
+                        total += memo_event.tie * read_queue[idx].multiplier
+                        read_queue.pop(idx)
+
+        for idx in read_queue.reverse_index_range():
+            total += 1 * read_queue[idx].multiplier
+
+        return total
 
 
 class Employee(object):
@@ -217,9 +307,11 @@ if __name__ == "__main__":
                 person_number, importance, tie = map(int, next_line.split(" "))
                 if tie == 0:
                     assert importance == 0
-                    event_queue.append((person_number, event_no))
+                    event_queue.append(ReadEvent(person_number, event_no))
                 else:
-                    event_queue.append((person_number, importance, tie))
+                    event_queue.append(MemoEvent(person_number,
+                                                 importance,
+                                                 tie))
 
                 next_line = handle.readline()
                 if next_line == "":
@@ -230,55 +322,7 @@ if __name__ == "__main__":
             log.info("Prep time: %r", time.time() - iter_start_time)
             iter_start_time = time.time()
 
-            total = 0
-            read_queue = ([], [])
-
-            while len(event_queue) > 0:
-                log.debug("Events left: %r", len(event_queue))
-                log.debug("Events queued: %r", len(read_queue))
-                if len(event_queue[-1]) == 2:
-                    read_event = event_queue.pop()
-
-                    # Either, this is a duplicate read event, so just add the
-                    # new multiplier to the existing stored one, or insert the
-                    # new read request into the list.
-                    read_q_idx = bisect.bisect_left(read_queue[0],
-                                                    read_event[0])
-                    if (read_q_idx != len(read_queue[0]) and
-                            read_queue[0][read_q_idx] == read_event[0]):
-                        read_queue[1][read_q_idx] += read_event[1]
-                    else:
-                        read_queue[0].insert(read_q_idx, read_event[0])
-                        read_queue[1].insert(read_q_idx, read_event[1])
-                else:
-                    memo_event = event_queue.pop()
-                    log.debug("Search depth: %r", memo_event[1])
-                    for index in range(len(read_queue[0]) - 1, -1, -1):
-                        # The list is sorted so once the update would only
-                        # effect lower people in the company we're done.
-                        if memo_event[0] > read_queue[0][index]:
-                            break
-
-                        managee = company.get_employee(read_queue[0][index])
-                        if managee.in_management_line(memo_event[0],
-                                                      memo_event[1]):
-                            total += memo_event[2] * read_queue[1][index]
-                            read_queue[0].pop(index)
-                            read_queue[1].pop(index)
-
-                    # new_read_queue = []
-                    # for read_event in read_queue:
-                    #     managee = company.get_employee(read_event[0])
-                    #     if managee.in_management_line(memo_event[0],
-                    #                                   memo_event[1]):
-                    #         total += memo_event[2] * read_event[1]
-                    #     else:
-                    #         new_read_queue.append(read_event)
-
-                    # read_queue = new_read_queue
-
-            for read_event_multiplier in read_queue[1]:
-                total += 1 * read_event_multiplier
+            total = company.process_event_queue(event_queue)
 
             log.info("Calculation time: %r", time.time() - iter_start_time)
             log.info("Solution: %r", total % (10**9 + 7))
