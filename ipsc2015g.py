@@ -105,7 +105,7 @@ class Company(object):
                 sorted_leaf_employee_numbers.pop(mgr_idx)
             sorted_leaf_employee_numbers.append(new_employee.number)
 
-        assert len(self._employees) == num_employees
+        assert len(self._employees) == self._num_employees
 
         log.info("Number of leaves: %r", len(sorted_leaf_employee_numbers))
 
@@ -279,50 +279,79 @@ class Employee(object):
         return False
 
 
+PuzzleSpec = namedtuple("PuzzleSpec", ["num_employees",
+                                       "hierarchy_spec",
+                                       "event_queue"])
+
+
+class PuzzleInputReader(object):
+    """Wrapper around the file defining the puzzle inputs."""
+
+    def __init__(self, file_path):
+        self._handle = None
+        self._num_tests = None
+        self._end_of_file = False
+
+        self._handle = open(file_path)
+
+        # The file starts with a line containing the number of tests and
+        # then a blank line.
+        self._num_tests = int(self._handle.readline().strip())
+        log.info("Number of tests: %s", self._num_tests)
+        self._handle.readline()
+
+    def read_next_puzzle(self):
+        if self._end_of_file:
+            return None
+
+        n, c, q = map(int, self._handle.readline().strip().split(" "))
+        log.info("num employees, num_ties, num_events: %r, %r, %r", n, c, q)
+
+        hierarchy_spec = map(int, self._handle.readline().strip().split(" "))
+
+        event_queue = []
+        event_no = 1
+
+        next_line = self._handle.readline().strip()
+        while next_line != "":
+            log.debug("Processing event: %r", event_no)
+            person_number, importance, tie = map(int, next_line.split(" "))
+            if tie == 0:
+                assert importance == 0
+                event_queue.append(ReadEvent(person_number, event_no))
+            else:
+                event_queue.append(MemoEvent(person_number,
+                                             importance,
+                                             tie))
+
+            next_line = self._handle.readline()
+            if next_line == "":
+                self._end_of_file = True
+            next_line = next_line.strip()
+            event_no += 1
+
+        assert len(event_queue) == q
+
+        return PuzzleSpec(n, hierarchy_spec, event_queue)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    with open(TEST_FILE) as handle:
-        num_tests = int(handle.readline().strip())
-        log.info("Number of tests: %s", num_tests)
-        handle.readline()
 
-        end_of_file = False
+    puzzle_reader = PuzzleInputReader(TEST_FILE)
 
-        while not end_of_file:
-            iter_start_time = time.time()
-            n, c, q = map(int, handle.readline().strip().split(" "))
-            log.info("num employees, num_ties, num_events: %r, %r, %r",
-                     n, c, q)
+    next_puzzle = puzzle_reader.read_next_puzzle()
+    while next_puzzle is not None:
+        iter_start_time = time.time()
+        company = Company(next_puzzle.num_employees,
+                          next_puzzle.hierarchy_spec)
 
-            hierarchy_spec = map(int, handle.readline().strip().split(" "))
+        log.info("Prep time: %r", time.time() - iter_start_time)
+        iter_start_time = time.time()
 
-            company = Company(n, hierarchy_spec)
-            hierarchy_spec = None
-            event_queue = []
-            event_no = 1
+        total = company.process_event_queue(next_puzzle.event_queue)
 
-            next_line = handle.readline().strip()
-            while next_line != "":
-                log.debug("Processing event: %r", event_no)
-                person_number, importance, tie = map(int, next_line.split(" "))
-                if tie == 0:
-                    assert importance == 0
-                    event_queue.append(ReadEvent(person_number, event_no))
-                else:
-                    event_queue.append(MemoEvent(person_number,
-                                                 importance,
-                                                 tie))
+        log.info("Calculation time: %r", time.time() - iter_start_time)
+        log.info("Solution: %r", total % (10**9 + 7))
 
-                next_line = handle.readline()
-                if next_line == "":
-                    end_of_file = True
-                next_line = next_line.strip()
-                event_no += 1
-
-            log.info("Prep time: %r", time.time() - iter_start_time)
-            iter_start_time = time.time()
-
-            total = company.process_event_queue(event_queue)
-
-            log.info("Calculation time: %r", time.time() - iter_start_time)
-            log.info("Solution: %r", total % (10**9 + 7))
+        next_puzzle = puzzle_reader.read_next_puzzle()
