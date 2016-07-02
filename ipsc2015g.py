@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 
 
 TEST_FILE = "g1.in"
+RESULT_FILE = "g1.out"
 
 
 # The size of the gaps in the management line summaries. Ideally this would be
@@ -163,6 +164,7 @@ class Company(object):
                         total += memo_event.tie * read_queue[idx].multiplier
                         read_queue.pop(idx)
 
+        # Any remaining events use the employee's initial tie value of 1.
         for idx in read_queue.reverse_index_range():
             total += 1 * read_queue[idx].multiplier
 
@@ -281,18 +283,21 @@ class Employee(object):
 
 PuzzleSpec = namedtuple("PuzzleSpec", ["num_employees",
                                        "hierarchy_spec",
-                                       "event_queue"])
+                                       "event_queue",
+                                       "expected_result"])
 
 
 class PuzzleInputReader(object):
     """Wrapper around the file defining the puzzle inputs."""
 
-    def __init__(self, file_path):
+    def __init__(self, definition_file_path, result_file_path):
         self._handle = None
+        self._result_handle = None
         self._num_tests = None
         self._end_of_file = False
 
-        self._handle = open(file_path)
+        self._handle = open(definition_file_path)
+        self._result_handle = open(result_file_path)
 
         # The file starts with a line containing the number of tests and
         # then a blank line.
@@ -332,13 +337,15 @@ class PuzzleInputReader(object):
 
         assert len(event_queue) == q
 
-        return PuzzleSpec(n, hierarchy_spec, event_queue)
+        expected_result = int(self._result_handle.readline().strip())
+
+        return PuzzleSpec(n, hierarchy_spec, event_queue, expected_result)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    puzzle_reader = PuzzleInputReader(TEST_FILE)
+    puzzle_reader = PuzzleInputReader(TEST_FILE, RESULT_FILE)
 
     next_puzzle = puzzle_reader.read_next_puzzle()
     while next_puzzle is not None:
@@ -350,8 +357,11 @@ if __name__ == "__main__":
         iter_start_time = time.time()
 
         total = company.process_event_queue(next_puzzle.event_queue)
+        solution = total % (10**9 + 7)
 
         log.info("Calculation time: %r", time.time() - iter_start_time)
-        log.info("Solution: %r", total % (10**9 + 7))
+        log.info("Solution: %r", solution)
+
+        assert solution == next_puzzle.expected_result
 
         next_puzzle = puzzle_reader.read_next_puzzle()
