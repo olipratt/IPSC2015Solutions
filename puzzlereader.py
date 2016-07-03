@@ -38,7 +38,8 @@ class PuzzleReader(object):
         n, c, q = map(int, self._handle.readline().strip().split(" "))
         log.info("num employees, num_ties, num_events: %r, %r, %r", n, c, q)
 
-        hierarchy_spec = map(int, self._handle.readline().strip().split(" "))
+        hierarchy_spec = list(map(int,
+                                  self._handle.readline().strip().split(" ")))
 
         event_queue = []
         event_no = 1
