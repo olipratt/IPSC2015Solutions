@@ -18,6 +18,8 @@ PUZZLE_2_RESULT_FILE = "g2.out"
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
+    overall_start_time = time.time()
+
     if len(sys.argv) == 1:
         input_file = PUZZLE_1_INPUT_FILE
         result_file = PUZZLE_1_RESULT_FILE
@@ -36,14 +38,16 @@ if __name__ == "__main__":
         company = create_company_model(next_puzzle.num_employees,
                                        next_puzzle.hierarchy_spec)
 
-        log.info("Prep time: %r", time.time() - iter_start_time)
+        log.info("Prep time: %.3fs", time.time() - iter_start_time)
         iter_start_time = time.time()
 
         total = company.process_event_queue(next_puzzle.event_queue)
         solution = total % (10**9 + 7)
 
-        log.info("Calculation time: %r", time.time() - iter_start_time)
+        log.info("Calculation time: %.3fs", time.time() - iter_start_time)
         log.info("Solution: %r", solution)
 
         assert solution == next_puzzle.expected_result, \
             "%r != %r" % (solution, next_puzzle.expected_result)
+
+    log.info("Total run time: %.3fs", time.time() - overall_start_time)
