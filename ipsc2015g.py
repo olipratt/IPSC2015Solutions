@@ -14,9 +14,11 @@
 
 import logging
 
-from collections import namedtuple
 import time
 import bisect
+
+from events import ReadEvent, ReadEventQueue
+from puzzlereader import PuzzleReader
 
 log = logging.getLogger(__name__)
 
@@ -28,55 +30,6 @@ RESULT_FILE = "g1.out"
 # The size of the gaps in the management line summaries. Ideally this would be
 # dynamic based on the org size / depth.
 SUMMARY_INTERVAL = 10
-
-
-MemoEvent = namedtuple("MemoEvent", ["person_number", "importance", "tie"])
-ReadEvent = namedtuple("ReadEvent", ["person_number", "multiplier"])
-
-
-class ReadEventQueue(object):
-    """A queue of events requesting reading of an employee's tie."""
-
-    def __init__(self):
-        # The events are split across two lists to allow easy searching using
-        # bisect. These lists must always be the same length.
-        self._person_number_list = []
-        self._multiplier_list = []
-
-        self._iterator_index = 0
-
-    def __len__(self):
-        return len(self._person_number_list)
-
-    def __getitem__(self, index):
-        return ReadEvent(self._person_number_list[index],
-                         self._multiplier_list[index])
-
-    def add_event(self, read_event):
-        # Either, this is a duplicate read event, so just add the
-        # new multiplier to the existing stored one, or insert the
-        # new read request into the list.
-        index = bisect.bisect_left(self._person_number_list,
-                                   read_event.person_number)
-        if (index != len(self._person_number_list) and
-                self._person_number_list[index] == read_event.person_number):
-            self._multiplier_list[index] += read_event.multiplier
-        else:
-            self._person_number_list.insert(index, read_event.person_number)
-            self._multiplier_list.insert(index, read_event.multiplier)
-
-        assert len(self._person_number_list) == len(self._multiplier_list)
-
-    def reverse_index_range(self):
-        """Returns a range that can be used to iterate over the indexes of
-           events in the queue in reverse, so that the current event can be
-           safely popped from the queue without breaking the iteration. """
-        return range(len(self) - 1, -1, -1)
-
-    def pop(self, index):
-        """Remove the event at the given index (without returning it). """
-        self._person_number_list.pop(index)
-        self._multiplier_list.pop(index)
 
 
 class Company(object):
@@ -281,74 +234,16 @@ class Employee(object):
         return False
 
 
-PuzzleSpec = namedtuple("PuzzleSpec", ["num_employees",
-                                       "hierarchy_spec",
-                                       "event_queue",
-                                       "expected_result"])
-
-
-class PuzzleInputReader(object):
-    """Wrapper around the file defining the puzzle inputs."""
-
-    def __init__(self, definition_file_path, result_file_path):
-        self._handle = None
-        self._result_handle = None
-        self._num_tests = None
-        self._end_of_file = False
-
-        self._handle = open(definition_file_path)
-        self._result_handle = open(result_file_path)
-
-        # The file starts with a line containing the number of tests and
-        # then a blank line.
-        self._num_tests = int(self._handle.readline().strip())
-        log.info("Number of tests: %s", self._num_tests)
-        self._handle.readline()
-
-    def read_next_puzzle(self):
-        if self._end_of_file:
-            return None
-
-        n, c, q = map(int, self._handle.readline().strip().split(" "))
-        log.info("num employees, num_ties, num_events: %r, %r, %r", n, c, q)
-
-        hierarchy_spec = map(int, self._handle.readline().strip().split(" "))
-
-        event_queue = []
-        event_no = 1
-
-        next_line = self._handle.readline().strip()
-        while next_line != "":
-            log.debug("Processing event: %r", event_no)
-            person_number, importance, tie = map(int, next_line.split(" "))
-            if tie == 0:
-                assert importance == 0
-                event_queue.append(ReadEvent(person_number, event_no))
-            else:
-                event_queue.append(MemoEvent(person_number,
-                                             importance,
-                                             tie))
-
-            next_line = self._handle.readline()
-            if next_line == "":
-                self._end_of_file = True
-            next_line = next_line.strip()
-            event_no += 1
-
-        assert len(event_queue) == q
-
-        expected_result = int(self._result_handle.readline().strip())
-
-        return PuzzleSpec(n, hierarchy_spec, event_queue, expected_result)
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    puzzle_reader = PuzzleInputReader(TEST_FILE, RESULT_FILE)
+    puzzle_reader = PuzzleReader(TEST_FILE, RESULT_FILE)
 
-    next_puzzle = puzzle_reader.read_next_puzzle()
-    while next_puzzle is not None:
+    while True:
+        next_puzzle = puzzle_reader.read_next_puzzle()
+        if next_puzzle is None:
+            break
+
         iter_start_time = time.time()
         company = Company(next_puzzle.num_employees,
                           next_puzzle.hierarchy_spec)
@@ -363,5 +258,3 @@ if __name__ == "__main__":
         log.info("Solution: %r", solution)
 
         assert solution == next_puzzle.expected_result
-
-        next_puzzle = puzzle_reader.read_next_puzzle()
