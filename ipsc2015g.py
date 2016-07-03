@@ -1,6 +1,7 @@
 import logging
 
 import time
+import sys
 
 from puzzlereader import PuzzleReader
 from company import create_company_model
@@ -8,14 +9,23 @@ from company import create_company_model
 log = logging.getLogger(__name__)
 
 
-TEST_FILE = "g2.in"
-RESULT_FILE = "g2.out"
+PUZZLE_1_INPUT_FILE = "g1.in"
+PUZZLE_1_RESULT_FILE = "g1.out"
+PUZZLE_2_INPUT_FILE = "g2.in"
+PUZZLE_2_RESULT_FILE = "g2.out"
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    puzzle_reader = PuzzleReader(TEST_FILE, RESULT_FILE)
+    if len(sys.argv) == 1:
+        input_file = PUZZLE_1_INPUT_FILE
+        result_file = PUZZLE_1_RESULT_FILE
+    else:
+        input_file = PUZZLE_2_INPUT_FILE
+        result_file = PUZZLE_2_RESULT_FILE
+
+    puzzle_reader = PuzzleReader(input_file, result_file)
 
     while True:
         next_puzzle = puzzle_reader.read_next_puzzle()
