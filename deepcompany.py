@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 # The size of the gaps in the management line summaries. Ideally this would be
 # dynamic based on the org size / depth.
-SUMMARY_INTERVAL = 10
+SUMMARY_INTERVAL = 10000
 
 
 class DeepCompany(object):
