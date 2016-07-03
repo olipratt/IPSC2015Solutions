@@ -1,7 +1,6 @@
 import logging
 
 from collections import namedtuple
-import bisect
 
 log = logging.getLogger(__name__)
 

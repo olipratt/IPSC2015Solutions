@@ -3,8 +3,8 @@ import logging
 from collections import Counter
 from math import sqrt
 
-from deepcompany import DeepCompany
-from shallowcompany import ShallowCompany
+from .deepcompany import DeepCompany
+from .shallowcompany import ShallowCompany
 
 
 log = logging.getLogger(__name__)

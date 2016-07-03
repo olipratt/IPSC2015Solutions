@@ -1,6 +1,6 @@
 import logging
 
-from events import MemoEvent, ReadEvent
+from .events import MemoEvent, ReadEvent
 
 log = logging.getLogger(__name__)
 

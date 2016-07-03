@@ -2,7 +2,7 @@ import logging
 
 from collections import namedtuple
 
-from events import ReadEvent, MemoEvent
+from .events import ReadEvent, MemoEvent
 
 log = logging.getLogger(__name__)
 

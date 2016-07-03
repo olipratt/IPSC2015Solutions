@@ -16,7 +16,7 @@ import logging
 
 import bisect
 
-from events import ReadEvent
+from .events import ReadEvent
 
 
 log = logging.getLogger(__name__)

@@ -3,16 +3,16 @@ import logging
 import time
 import sys
 
-from puzzlereader import PuzzleReader
-from company import create_company_model
+from problem2015g.puzzlereader import PuzzleReader
+from problem2015g.company import create_company_model
 
 log = logging.getLogger(__name__)
 
 
-PUZZLE_1_INPUT_FILE = "g1.in"
-PUZZLE_1_RESULT_FILE = "g1.out"
-PUZZLE_2_INPUT_FILE = "g2.in"
-PUZZLE_2_RESULT_FILE = "g2.out"
+PUZZLE_1_INPUT_FILE = "problem2015g/g1.in"
+PUZZLE_1_RESULT_FILE = "problem2015g/g1.out"
+PUZZLE_2_INPUT_FILE = "problem2015g/g2.in"
+PUZZLE_2_RESULT_FILE = "problem2015g/g2.out"
 
 
 if __name__ == "__main__":
